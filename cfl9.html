@@ -1,0 +1,283 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+
+    <!-- Google jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <!-- jQuery UI-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+
+    <script type="text/javascript">
+
+        // Display data by appending the table
+        function displayData(data) {
+            $.each(data, function (key, value) {
+                value.addressLine = value.addressLine.slice(0, value.addressLine.length - 9);
+                $("#restaurantTable")
+                    .append('<tr><th scope="row" class="name">' +
+                            value.name +
+                        '</th><td class="address">' +
+                            value.addressLine +
+                        '</td><td>' +
+                            value.hygieneRating +
+                        '</td><td>' +
+                            value.ratingDate +
+                        '</td><td>' +
+                            value.postcode +
+                        '</td><td>' +
+                        '<button type="button" class="btn btn-info btn-sm btn-block" value="' +
+                            value.postcode + 
+                        '">Get rating</button></td></tr>'
+                    );
+
+            });
+        }
+
+        // Task 1.1
+        // Fetch the first page
+        $(document).ready(function () {
+            $.get("https://www.cs.kent.ac.uk/people/staff/sm951/co539/assessment2/hygiene.php?operation=get&page=1", function (data) {
+                displayData(data);               
+                }, 
+                "json"
+            );
+        });
+
+        // Task 1.2
+        // Generates button depending on the number of pages
+        $(document).ready(function () {
+
+            // Fetch the number of pages
+            $.get("https://www.cs.kent.ac.uk/people/staff/sm951/co539/assessment2/hygiene.php?operation=pages", function (data) {
+
+                // Generate page buttons
+                $.each(data, function (i, pageNum) {
+                    for (i = 1; i <= pageNum; i++) {
+                        $(".pagination")
+                            .append("<button class='btn btn-light btn-sm' id='page" + i + "' type='button' value=" + i + ">" + i + "</button>");
+                        
+                        // When the corresponding page button is clicked, show the corresponding page data
+                        $("#page" + i).click(function () {
+                        // Clear the table but the first row
+                            $("#restaurantTable").find("tr:gt(0)").remove();
+                            
+                            var pageNum = $(this).text();
+                            
+                            $.get("https://www.cs.kent.ac.uk/people/staff/sm951/co539/assessment2/hygiene.php?operation=get&page=" + pageNum, function (data) {
+                                displayData(data); 
+                                }, 
+                                "json"
+                            );
+                        });
+                    }  
+                });
+                }, 
+                "json"
+            );
+        });
+
+        // Task 2.1
+        // Retrieve the Customer Rating when requested by the User
+        $(document).ready(function () {
+            $("#restaurantTable").on("click", "button", function () {
+                var postcodeDistrict = ($(this).val().slice(0, 3));
+                var townName = '';
+                
+                var row = $(this).closest("tr");               // Find the row
+                var restaurantName = row.find(".name").text(); // Find the name of the buisness
+                var address = row.find(".address").text();
+                
+                // Match townName with the postcode
+                switch (postcodeDistrict) {
+                    case "ME1":
+                    case "ME2":
+                    case "ME3":
+                        townName = 'Rochester';
+                        break;
+                    case "ME4":
+                    case "ME5":
+                        townName = 'Chatham';
+                        break;
+                    case "ME7":
+                    case "ME8":
+                        townName = 'Gillingham';
+                        break;
+                }
+                getRating(restaurantName, townName);
+
+            });
+        });
+
+        function getRating(restaurantName, townName) {
+            $.get("https://www.cs.kent.ac.uk/people/staff/sm951/co539/assessment2/rating.php?name=" + restaurantName,
+                function (data) {
+                    var index = 0;
+                    $.each(data, function (key, value) {
+                        index++;
+                    });
+                    
+                    // 0 results found
+                    if (index < 1) {
+                        alert("No ratings found for this restaurant");
+                    }
+                    // 1 result found
+                    else if (index === 1) {
+                        if (data[0].rating != null && data[0].vicinity.includes(townName)) { // checks if the rating is not an empty string
+                            alert("Customer Rating for " + restaurantName + ": " + data[0].rating);
+                        } else {
+                            alert("No ratings found for this restaurant");
+                        }
+                    }
+                    // More than 1 result found, use townName to find which one is correct
+                    else if (index > 1) {
+                        var rating;
+                        $.each(data, function (key, value) {
+                            var vicinity = data[key].vicinity;
+                            // If vicinity inclues townName, assign rating
+                            if (vicinity.includes(townName)) {
+                                rating = data[key].rating; 
+                            }
+                        });
+
+                        // Check if rating is not an empty string
+                        if (rating != null) {
+                            alert("Customer Rating for " + restaurantName + ": " + rating);  
+                        }
+                        // If rating is undefined or null
+                        else {
+                            alert("No ratings found for this restaurant");
+                        }
+                    }
+                },
+                'json'
+            );
+        }
+
+        // Task 3.1
+        // Add a search input
+        $(document).ready(function () {
+            // When the searchBtn is clicked, update the table
+            $("#searchBtn").click(function () {
+
+                // Retrieve the value in the input field with th id searchValue
+                var searchValue = $('input#searchValue').val();
+
+                // Clear the table but the first row
+                $("#restaurantTable").find("tr:gt(0)").remove();
+
+                // Perform an AJAX request to the server-side script to search restaurants whose name contain the searchValue
+                $.get("https://www.cs.kent.ac.uk/people/staff/sm951/co539/assessment2/hygiene.php?operation=search&name=" + searchValue, 
+                    function (data) {
+                        displayData(data);
+                    },
+                    "json"
+                );
+            });
+
+            // Autocomplete function for the search input field
+            $(function () {
+            // A pre-defined array of autocomplete tags
+            var availableTags = [
+                "Pizza Go Go",
+                "Nandos",
+                "The Real China",
+                "Senola's"
+            ];
+
+            $("#searchValue").autocomplete({
+                source: availableTags,
+                minLength: 0
+            }).on('focus', function () {          // Show suggestiong when focusing on input field
+                $(this).autocomplete("search");
+            });
+            
+            // Extend the array of autocomplete tags dynamically with the results returned by each time by the search
+            $("#searchBtn").on("click", function () {
+                var searchValue = $("#searchValue").val();
+                // Avoid duplicates
+                if (availableTags.includes(searchValue) === false) {
+                    availableTags.push(searchValue);
+                }
+            });
+        });
+    })
+    </script>
+
+    <title>Food Hygiene Ratings</title>
+</head>
+
+<body>
+
+    <nav class="navbar navbar-light bg-light">
+        <a class="navbar-brand">CO539 Assessment 2</a>
+    </nav>
+
+    <main role="main" class="container">
+        <h1 class="mt-3">Food Hygiene Ratings</h1>
+        <p class="lead">The initial page will gather restaurants in Medway from the first page from the server when it loads. The paginator allows you to navigate through the database. A search bar is loacted at the bottom of the page that allows you to search for specific restaurants.</p>
+    </main>
+
+    <!-- Pages button -->
+    <div class="container">
+        <div class="row">
+            <div class="col justify-content-center pagination btn-group" role="group" aria-label="pagination" id="pagination">
+                <button type="button" class="btn btn-secondary btn-sm active" role="button" aria-pressed="true">Pages:
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <!-- Table -->
+
+    <div class="container-fluid">
+        <table class="table" id="restaurantTable">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Address</th>
+                    <th scope="col">Hygiene</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Post code</th>
+                    <th scope="col">Ratings</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Search bar with autocomplete -->
+    <div class="input-group mb-3 container col-lg-4">
+        
+
+            <div class="input-group-prepend">
+                <span class="input-group-text">Restaurant name: </span>
+            </div>
+
+            <input type="text" class="form-control" id="searchValue">
+
+            <div class="input-group-append">
+                <button class="btn btn-outline-secondary" id="searchBtn" type="button" value="Search">Search</button>
+            </div>
+        
+            
+    </div>
+
+    <br class="mt-3">
+
+</body>
+
+</html>
